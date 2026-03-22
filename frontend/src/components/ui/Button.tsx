@@ -1,7 +1,7 @@
 import { type ButtonHTMLAttributes, type ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   icon?: ReactNode;
@@ -9,17 +9,18 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants = {
-  primary: 'bg-primary text-white hover:bg-primary-dark active:scale-[0.98] shadow-sm',
-  secondary: 'bg-gray-100 text-text hover:bg-gray-200 active:scale-[0.98]',
-  danger: 'bg-danger text-white hover:bg-red-700 active:scale-[0.98]',
+  primary: 'gradient-primary text-white shadow-primary active:scale-[0.97] active:shadow-none hover:opacity-90',
+  secondary: 'bg-white text-text border border-border shadow-card hover:shadow-card-hover active:scale-[0.98]',
+  danger: 'bg-gradient-to-r from-danger to-red-700 text-white shadow-danger active:scale-[0.97] active:shadow-none hover:opacity-90',
+  success: 'gradient-success text-white shadow-success active:scale-[0.97] active:shadow-none hover:opacity-90',
   ghost: 'text-text-secondary hover:bg-gray-100 active:scale-[0.98]',
   outline: 'border border-border text-text hover:bg-gray-50 active:scale-[0.98]',
 };
 
 const sizes = {
-  sm: 'px-3 py-1.5 text-xs rounded-lg',
-  md: 'px-4 py-2.5 text-sm rounded-xl',
-  lg: 'px-6 py-3 text-base rounded-xl',
+  sm: 'px-3 py-1.5 text-xs rounded-xl',
+  md: 'px-4 py-3 text-sm rounded-2xl',
+  lg: 'px-6 py-3.5 text-base rounded-2xl',
 };
 
 export default function Button({
@@ -35,7 +36,7 @@ export default function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`font-semibold transition-all duration-150 flex items-center justify-center gap-2 ${variants[variant]} ${sizes[size]} ${fullWidth ? 'w-full' : ''} ${disabled || loading ? 'opacity-50 pointer-events-none' : ''} ${className}`}
+      className={`font-bold tracking-wide transition-all duration-200 flex items-center justify-center gap-2 ${variants[variant]} ${sizes[size]} ${fullWidth ? 'w-full' : ''} ${disabled || loading ? 'opacity-50 pointer-events-none' : ''} ${className}`}
       disabled={disabled || loading}
       {...props}
     >
