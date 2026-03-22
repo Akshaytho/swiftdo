@@ -1,0 +1,11 @@
+.env
+.env.local
+node_modules/
+build/
+dist/
+.expo/
+.DS_Store
+*.log
+.claude/HANDOFF_DRAFT.md
+uploads/
+coverage/

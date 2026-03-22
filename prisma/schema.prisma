@@ -1,0 +1,323 @@
+// ─────────────────────────────────────────────────────────
+// SwiftDo — Sprint 1 Prisma Schema
+// ─────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────
+
+enum Role {
+  BUYER
+  WORKER
+  CITIZEN
+  ADMIN
+}
+
+enum TaskStatus {
+  OPEN
+  ACCEPTED
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+  DISPUTED
+}
+
+enum TaskUrgency {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MediaType {
+  BEFORE_PHOTO
+  AFTER_PHOTO
+  PROOF_PHOTO
+  REFERENCE_IMAGE
+  REPORT_PHOTO
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ReportStatus {
+  REPORTED
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum NotificationType {
+  TASK_ACCEPTED
+  TASK_STARTED
+  TASK_SUBMITTED
+  TASK_APPROVED
+  TASK_REJECTED
+  TASK_CANCELLED
+  TASK_DISPUTED
+  PAYOUT_CREATED
+  REPORT_RECEIVED
+  GENERAL
+}
+
+// ── Users ────────────────────────────────────────────────
+// Central identity table. Every person in the system is a User.
+// Role determines what they can do. A user has exactly one role in Sprint 1.
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  phone        String?  @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         Role     @default(CITIZEN)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  workerProfile  WorkerProfile?
+  buyerProfile   BuyerProfile?
+  tasksAsBuyer   Task[]          @relation("BuyerTasks")
+  tasksAsWorker  Task[]          @relation("WorkerTasks")
+  citizenReports CitizenReport[]
+  notifications  Notification[]
+  taskEvents     TaskEvent[]
+
+  @@index([role])
+  @@map("users")
+}
+
+// ── Worker Profiles ──────────────────────────────────────
+// Extended data for users with role=WORKER.
+// activeTaskId enforces the ONE-ACTIVE-TASK rule at the DB level.
+// The @unique on activeTaskId means no two workers can claim the same task,
+// and setting it non-null means this worker is busy.
+
+model WorkerProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  user           User     @relation(fields: [userId], references: [id])
+  activeTaskId   String?  @unique @map("active_task_id")
+  skills         String[] @default([])
+  rating         Float    @default(0)
+  completedTasks Int      @default(0) @map("completed_tasks")
+  isAvailable    Boolean  @default(true) @map("is_available")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("worker_profiles")
+}
+
+// ── Buyer Profiles ───────────────────────────────────────
+// Extended data for users with role=BUYER.
+
+model BuyerProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique @map("user_id")
+  user        User     @relation(fields: [userId], references: [id])
+  companyName String?  @map("company_name")
+  totalPosted Int      @default(0) @map("total_posted")
+  totalSpentCents Int   @default(0) @map("total_spent_cents")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("buyer_profiles")
+}
+
+// ── Tasks ────────────────────────────────────────────────
+// The core entity. A buyer creates a task, a worker completes it.
+// Money stored as integer cents to avoid floating point issues.
+// State transitions governed by the state machine in code.
+
+model Task {
+  id              String     @id @default(uuid())
+  title           String
+  description     String
+  category        String
+  status          TaskStatus @default(OPEN)
+  urgency         TaskUrgency @default(MEDIUM)
+
+  rateCents       Int        @map("rate_cents")
+  currency        String     @default("INR")
+
+  buyerId         String     @map("buyer_id")
+  buyer           User       @relation("BuyerTasks", fields: [buyerId], references: [id])
+
+  workerId        String?    @map("worker_id")
+  worker          User?      @relation("WorkerTasks", fields: [workerId], references: [id])
+
+  locationLat     Float?     @map("location_lat")
+  locationLng     Float?     @map("location_lng")
+  locationAddress String?    @map("location_address")
+
+  extraNote       String?    @map("extra_note")
+  buyerNotes      String?    @map("buyer_notes")
+  rejectionReason String?    @map("rejection_reason")
+  cancellationReason String? @map("cancellation_reason")
+
+  deadline        DateTime?
+  expectedCompletionBy DateTime? @map("expected_completion_by")
+  startedAt       DateTime?  @map("started_at")
+  submittedAt     DateTime?  @map("submitted_at")
+  completedAt     DateTime?  @map("completed_at")
+  cancelledAt     DateTime?  @map("cancelled_at")
+  timeSpentSecs   Int?       @map("time_spent_secs")
+
+  aiScore         Float?     @map("ai_score")
+
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  media           TaskMedia[]
+  locationLogs    TaskLocationLog[]
+  events          TaskEvent[]
+  payout          Payout?
+
+  @@index([status])
+  @@index([buyerId])
+  @@index([workerId])
+  @@index([category])
+  @@index([urgency])
+  @@index([status, category])
+  @@index([status, createdAt])
+  @@index([status, urgency])
+  @@map("tasks")
+}
+
+// ── Task Media ───────────────────────────────────────────
+// Photos attached to a task: before, after, proof, reference.
+// Each record is one file. A task may have multiple of the same type.
+
+model TaskMedia {
+  id         String    @id @default(uuid())
+  taskId     String    @map("task_id")
+  task       Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  type       MediaType
+  url        String
+  fileName   String    @map("file_name")
+  mimeType   String    @map("mime_type")
+  sizeBytes  Int       @map("size_bytes")
+  uploadedBy String    @map("uploaded_by")
+  uploadedAt DateTime  @default(now()) @map("uploaded_at")
+
+  @@index([taskId, type])
+  @@map("task_media")
+}
+
+// ── Task Location Logs ───────────────────────────────────
+// GPS breadcrumbs sent by the worker during in_progress state.
+// Used by the buyer to verify the worker was at the task location.
+
+model TaskLocationLog {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  lat       Float
+  lng       Float
+  accuracy  Float?
+  timestamp DateTime @default(now())
+
+  @@index([taskId])
+  @@index([taskId, timestamp])
+  @@map("task_location_logs")
+}
+
+// ── Task Events ──────────────────────────────────────────
+// Append-only audit log. Every state change and significant action
+// creates an event. This gives a full timeline for disputes.
+
+model TaskEvent {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  action    String
+  actorId   String   @map("actor_id")
+  actor     User     @relation(fields: [actorId], references: [id])
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([taskId])
+  @@index([actorId])
+  @@map("task_events")
+}
+
+// ── Payouts ──────────────────────────────────────────────
+// Created when a buyer approves a task. Sprint 1: record-only,
+// no real payment gateway. Status tracks the intent.
+
+model Payout {
+  id          String       @id @default(uuid())
+  taskId      String       @unique @map("task_id")
+  task        Task         @relation(fields: [taskId], references: [id])
+  workerId    String       @map("worker_id")
+  buyerId     String       @map("buyer_id")
+  amountCents Int          @map("amount_cents")
+  currency    String       @default("INR")
+  status      PayoutStatus @default(PENDING)
+  paidAt      DateTime?    @map("paid_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([workerId])
+  @@index([buyerId])
+  @@index([status])
+  @@map("payouts")
+}
+
+// ── Citizen Reports ──────────────────────────────────────
+// Sprint 1: storage-only. Citizens submit reports, they are stored.
+// No task linkage yet — standalone for later triage.
+
+model CitizenReport {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id])
+  category        String
+  description     String
+  locationLat     Float?   @map("location_lat")
+  locationLng     Float?   @map("location_lng")
+  locationAddress String?  @map("location_address")
+  photoUrl        String?  @map("photo_url")
+  status          ReportStatus @default(REPORTED)
+  adminNotes      String?  @map("admin_notes")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([category])
+  @@map("citizen_reports")
+}
+
+// ── Notifications ────────────────────────────────────────
+// In-app notifications. Sprint 1: stored in DB, queried by user.
+// Extensible for push/SMS/email in later sprints.
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  body      String
+  relatedId String?          @map("related_id")
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}

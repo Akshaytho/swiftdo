@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source ~/.nvm/nvm.sh)",
+      "Bash(source ~/.zshrc)",
+      "Bash(echo \"PATH=$PATH\")",
+      "Bash(curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh)",
+      "Bash(bash)",
+      "Bash(grep -n \"passwordHash\\\\|password_hash\" /Users/thotaakshay/swiftdov2/src/modules/auth/*.ts)",
+      "Bash(grep -n \"validate.*body.*schema\" /Users/thotaakshay/swiftdov2/src/modules/tasks/*.routes.ts)",
+      "Bash(docker --version)",
+      "Bash(brew list:*)",
+      "Read(//usr/local/opt/**)",
+      "Read(//opt/homebrew/**)",
+      "Bash(pg_isready)",
+      "Bash(conda --version)",
+      "Bash(export PATH=\"/opt/miniconda3/bin:$PATH\")",
+      "Bash(conda install:*)",
+      "Bash(/opt/miniconda3/bin/conda install:*)",
+      "Bash(pg_ctl --version)",
+      "Bash(mkdir -p /Users/thotaakshay/pgdata)",
+      "Bash(initdb -D /Users/thotaakshay/pgdata)",
+      "Bash(pg_ctl -D /Users/thotaakshay/pgdata -l /Users/thotaakshay/pgdata/logfile start)",
+      "Bash(createdb swiftdo_dev)",
+      "Bash(psql -d swiftdo_dev -c \"CREATE USER swiftdo WITH PASSWORD ''swiftdo_pass'';\")",
+      "Bash(psql -d swiftdo_dev -c \"GRANT ALL PRIVILEGES ON DATABASE swiftdo_dev TO swiftdo;\")",
+      "Bash(psql -d swiftdo_dev -c \"GRANT ALL ON SCHEMA public TO swiftdo;\")",
+      "Bash(psql -d swiftdo_dev -c \"ALTER USER swiftdo CREATEDB;\")"
+    ]
+  }
+}
