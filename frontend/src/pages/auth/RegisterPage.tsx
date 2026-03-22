@@ -1,12 +1,15 @@
-import { useState, FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { Mail, Lock, User, ArrowRight, Briefcase, ShoppingBag, Shield } from 'lucide-react';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
 import ErrorMsg, { getErrorMsg } from '../../components/ErrorMsg';
 
 const ROLES = [
-  { value: 'BUYER', label: 'Buyer — post tasks' },
-  { value: 'WORKER', label: 'Worker — complete tasks' },
-  { value: 'CITIZEN', label: 'Citizen — report issues' },
+  { value: 'WORKER', label: 'Worker', desc: 'I complete tasks', icon: Briefcase, color: 'blue' },
+  { value: 'BUYER', label: 'Buyer', desc: 'I post tasks', icon: ShoppingBag, color: 'green' },
+  { value: 'CITIZEN', label: 'Citizen', desc: 'I report issues', icon: Shield, color: 'purple' },
 ];
 
 export default function RegisterPage() {
@@ -34,71 +37,92 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="max-w-sm mx-auto mt-16">
-      <h1 className="text-2xl font-bold text-center mb-6">Create Account</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <ErrorMsg error={error} />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-          <input
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-1 flex flex-col justify-center px-6 max-w-sm mx-auto w-full py-10">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-4">
+            <span className="text-2xl font-black text-white">S</span>
+          </div>
+          <h1 className="text-2xl font-black text-text">Join SwiftDo</h1>
+          <p className="text-sm text-text-secondary mt-1">Create your account to get started</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <ErrorMsg error={error} />
+
+          <Input
             type="text"
+            label="Full Name"
+            placeholder="Your name"
             required
+            minLength={2}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            icon={<User size={18} />}
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-          <input
+
+          <Input
             type="email"
+            label="Email"
+            placeholder="you@example.com"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            icon={<Mail size={18} />}
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-          <input
+
+          <Input
             type="password"
+            label="Password"
+            placeholder="Min 8 chars, 1 upper, 1 lower, 1 digit"
             required
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-            placeholder="Min 8 chars, 1 upper, 1 lower, 1 digit"
+            icon={<Lock size={18} />}
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">I am a...</label>
-          <div className="space-y-2">
-            {ROLES.map((r) => (
-              <label key={r.value} className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  name="role"
-                  value={r.value}
-                  checked={role === r.value}
-                  onChange={() => setRole(r.value)}
-                  className="text-indigo-600"
-                />
-                {r.label}
-              </label>
-            ))}
+
+          {/* Role Selection Cards */}
+          <div>
+            <label className="block text-sm font-medium text-text mb-2">I am a...</label>
+            <div className="grid grid-cols-3 gap-2">
+              {ROLES.map((r) => {
+                const Icon = r.icon;
+                const isSelected = role === r.value;
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setRole(r.value)}
+                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? 'border-primary bg-primary-light'
+                        : 'border-border bg-surface hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon size={22} className={isSelected ? 'text-primary' : 'text-text-muted'} />
+                    <span className={`text-xs font-semibold ${isSelected ? 'text-primary' : 'text-text-secondary'}`}>
+                      {r.label}
+                    </span>
+                    <span className="text-[10px] text-text-muted leading-tight">{r.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {loading ? 'Creating...' : 'Create Account'}
-        </button>
-      </form>
-      <p className="text-sm text-center mt-4 text-gray-500">
-        Have an account? <Link to="/login" className="text-indigo-600 hover:underline">Sign in</Link>
-      </p>
+
+          <Button type="submit" loading={loading} icon={<ArrowRight size={18} />}>
+            Create Account
+          </Button>
+        </form>
+
+        <p className="text-sm text-center mt-6 text-text-secondary">
+          Already have an account?{' '}
+          <Link to="/login" className="text-primary font-semibold hover:underline">
+            Sign in
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

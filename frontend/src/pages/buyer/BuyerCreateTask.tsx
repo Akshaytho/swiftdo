@@ -1,29 +1,50 @@
-import { useState, FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { buyerApi } from '../../lib/api';
+import { Navigation, ArrowRight } from 'lucide-react';
+import TopBar from '../../components/ui/TopBar';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import { Textarea, Select } from '../../components/ui/Input';
+import Card from '../../components/ui/Card';
 import ErrorMsg, { getErrorMsg } from '../../components/ErrorMsg';
 
-const CATEGORIES = ['Cleaning', 'Repair', 'Delivery', 'Inspection', 'Maintenance', 'Other'];
-const URGENCY = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+const CATEGORIES = [
+  { value: 'Cleaning', label: 'Cleaning' },
+  { value: 'Repair', label: 'Repair' },
+  { value: 'Delivery', label: 'Delivery' },
+  { value: 'Inspection', label: 'Inspection' },
+  { value: 'Maintenance', label: 'Maintenance' },
+  { value: 'Other', label: 'Other' },
+];
+
+const URGENCY = [
+  { value: 'LOW', label: 'Low' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'HIGH', label: 'High' },
+  { value: 'URGENT', label: 'Urgent' },
+];
 
 export default function BuyerCreateTask() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
   const [form, setForm] = useState({
-    title: '',
-    category: 'Cleaning',
-    taskNotes: '',
-    locationText: '',
-    lat: '',
-    lng: '',
-    urgency: 'MEDIUM',
-    offeredRate: '',
-    extraNote: '',
+    title: '', category: 'Cleaning', taskNotes: '', locationText: '',
+    lat: '', lng: '', urgency: 'MEDIUM', offeredRate: '', extraNote: '',
   });
 
   const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }));
+
+  const getLocation = () => {
+    navigator.geolocation?.getCurrentPosition(
+      (pos) => {
+        set('lat', pos.coords.latitude.toFixed(6));
+        set('lng', pos.coords.longitude.toFixed(6));
+      },
+      () => setError('Could not get your location')
+    );
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -45,84 +66,48 @@ export default function BuyerCreateTask() {
     }
   };
 
-  const getLocation = () => {
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => {
-        set('lat', pos.coords.latitude.toString());
-        set('lng', pos.coords.longitude.toString());
-      },
-      () => setError('Could not get location')
-    );
-  };
-
   return (
-    <div className="max-w-lg mx-auto">
-      <h1 className="text-xl font-bold mb-4">Create New Task</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div>
+      <TopBar title="Create Task" showBack />
+      <form onSubmit={handleSubmit} className="px-4 py-4 space-y-4 max-w-lg mx-auto">
         <ErrorMsg error={error} />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-          <input required minLength={3} value={form.title} onChange={(e) => set('title', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-            <select value={form.category} onChange={(e) => set('category', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
+        <Card>
+          <h2 className="text-sm font-bold text-text mb-3">Task Details</h2>
+          <div className="space-y-3">
+            <Input label="Title" required minLength={3} value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Deep clean 2BHK apartment" />
+            <div className="grid grid-cols-2 gap-3">
+              <Select label="Category" options={CATEGORIES} value={form.category} onChange={(e) => set('category', e.target.value)} />
+              <Select label="Urgency" options={URGENCY} value={form.urgency} onChange={(e) => set('urgency', e.target.value)} />
+            </div>
+            <Textarea label="Task Notes" required minLength={10} rows={3} value={form.taskNotes} onChange={(e) => set('taskNotes', e.target.value)} placeholder="Describe what needs to be done..." />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Urgency</label>
-            <select value={form.urgency} onChange={(e) => set('urgency', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-              {URGENCY.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
+        </Card>
+
+        <Card>
+          <h2 className="text-sm font-bold text-text mb-3">Location</h2>
+          <div className="space-y-3">
+            <Input label="Address" required value={form.locationText} onChange={(e) => set('locationText', e.target.value)} placeholder="Street address or landmark" />
+            <div className="grid grid-cols-2 gap-3">
+              <Input placeholder="Latitude" value={form.lat} onChange={(e) => set('lat', e.target.value)} />
+              <Input placeholder="Longitude" value={form.lng} onChange={(e) => set('lng', e.target.value)} />
+            </div>
+            <button type="button" onClick={getLocation} className="flex items-center gap-1.5 text-xs text-primary font-semibold">
+              <Navigation size={14} /> Use my current location
+            </button>
           </div>
-        </div>
+        </Card>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Task Notes</label>
-          <textarea required minLength={10} rows={3} value={form.taskNotes} onChange={(e) => set('taskNotes', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
+        <Card>
+          <h2 className="text-sm font-bold text-text mb-3">Pricing</h2>
+          <Input label="Offered Rate (Rs)" required type="number" min="1" step="1" value={form.offeredRate} onChange={(e) => set('offeredRate', e.target.value)} placeholder="Amount in rupees" />
+        </Card>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-          <input required value={form.locationText} onChange={(e) => set('locationText', e.target.value)}
-            placeholder="Address or description"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
+        <Input label="Extra Note (optional)" value={form.extraNote} onChange={(e) => set('extraNote', e.target.value)} placeholder="Any additional instructions" />
 
-        <div className="grid grid-cols-2 gap-3">
-          <input value={form.lat} onChange={(e) => set('lat', e.target.value)} placeholder="Latitude"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          <input value={form.lng} onChange={(e) => set('lng', e.target.value)} placeholder="Longitude"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <button type="button" onClick={getLocation} className="text-xs text-indigo-600 hover:underline">
-          Use my current location
-        </button>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Offered Rate (Rs)</label>
-          <input required type="number" min="1" step="1" value={form.offeredRate} onChange={(e) => set('offeredRate', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Extra Note (optional)</label>
-          <input value={form.extraNote} onChange={(e) => set('extraNote', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
-
-        <button type="submit" disabled={loading}
-          className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-          {loading ? 'Creating...' : 'Create Task'}
-        </button>
+        <Button type="submit" loading={loading} icon={<ArrowRight size={18} />} size="lg">
+          Create Task
+        </Button>
       </form>
     </div>
   );

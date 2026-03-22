@@ -92,13 +92,16 @@
 - [x] Notifications page (list, mark read, mark all read)
 
 ### UI/UX
-- [x] Tailwind CSS styling (mobile-friendly max-w-lg layouts)
+- [x] Tailwind CSS 4 design system (color tokens, custom theme)
+- [x] Mobile-first layout with bottom tab navigation
+- [x] Reusable UI component library (Button, Card, Input, Badge, Avatar, Skeleton, EmptyState, TopBar)
 - [x] Form validation with error messages (API errors displayed)
-- [x] Loading states on all pages
-- [x] Empty state messages
+- [x] Loading skeleton states on all pages
+- [x] Empty state components with icons
 - [x] Status badges with color coding
+- [x] Profile page with avatar and role info
+- [x] PWA setup (manifest.json, service worker, installable)
 - [ ] Error boundary / fallback UI
-- [ ] Empty state illustrations
 
 ### Integrations
 - [ ] Push notifications (in-app only for now)
@@ -117,4 +120,4 @@
 
 ---
 
-**Last updated:** Session 0 — 2026-03-22
+**Last updated:** Session 1 — 2026-03-22

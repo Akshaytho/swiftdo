@@ -1,18 +1,23 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { workerApi, mediaApi } from '../../lib/api';
-import StatusBadge from '../../components/StatusBadge';
+import { Camera, Upload, CheckCircle2, Play, Send, RotateCcw, Ban, MapPin } from 'lucide-react';
+import TopBar from '../../components/ui/TopBar';
+import Card from '../../components/ui/Card';
+import Badge from '../../components/ui/Badge';
+import Button from '../../components/ui/Button';
+import { Textarea } from '../../components/ui/Input';
+import { PageSkeleton } from '../../components/ui/Skeleton';
 import ErrorMsg, { getErrorMsg } from '../../components/ErrorMsg';
 
 const PHOTO_TYPES = [
-  { value: 'BEFORE_PHOTO', label: 'Before Photo' },
-  { value: 'AFTER_PHOTO', label: 'After Photo' },
-  { value: 'PROOF_PHOTO', label: 'Proof Photo' },
+  { value: 'BEFORE_PHOTO', label: 'Before' },
+  { value: 'AFTER_PHOTO', label: 'After' },
+  { value: 'PROOF_PHOTO', label: 'Proof' },
 ];
 
 export default function WorkerTaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
-  const navigate = useNavigate();
   const [task, setTask] = useState<any>(null);
   const [media, setMedia] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,17 +27,16 @@ export default function WorkerTaskDetail() {
   const [showCancel, setShowCancel] = useState(false);
   const [uploadType, setUploadType] = useState('BEFORE_PHOTO');
   const fileRef = useRef<HTMLInputElement>(null);
-  const locationIntervalRef = useRef<number | null>(null);
+  const locationRef = useRef<number | null>(null);
 
   const load = async () => {
     try {
       const res = await workerApi.getTask(taskId!);
       setTask(res.data.data);
-      // Load media if worker is assigned
       try {
         const mRes = await mediaApi.list(taskId!);
         setMedia(mRes.data.data);
-      } catch { /* may not have access */ }
+      } catch {}
     } catch (err) {
       setError(getErrorMsg(err));
     } finally {
@@ -40,204 +44,178 @@ export default function WorkerTaskDetail() {
     }
   };
 
-  useEffect(() => {
-    load();
-    return () => {
-      if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+  useEffect(() => { load(); return () => { if (locationRef.current) clearInterval(locationRef.current); }; }, [taskId]);
+
+  const startGPS = () => {
+    if (locationRef.current) return;
+    const send = () => {
+      navigator.geolocation?.getCurrentPosition(
+        (pos) => { workerApi.logLocation(taskId!, pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy).catch(() => {}); },
+        () => {}
+      );
     };
-  }, [taskId]);
+    send();
+    locationRef.current = window.setInterval(send, 30000);
+  };
+
+  useEffect(() => { if (task?.status === 'IN_PROGRESS') startGPS(); }, [task?.status]);
 
   const doAction = async (action: () => Promise<any>) => {
     setActionLoading(true);
     setError(null);
-    try {
-      await action();
-      await load();
-    } catch (err) {
-      setError(getErrorMsg(err));
-    } finally {
-      setActionLoading(false);
-    }
+    try { await action(); await load(); } catch (err) { setError(getErrorMsg(err)); } finally { setActionLoading(false); }
   };
 
   const handleAccept = () => doAction(() => workerApi.acceptTask(taskId!));
-
-  const handleStart = () => {
-    doAction(async () => {
-      await workerApi.startTask(taskId!);
-      // Start GPS logging every 30 seconds
-      startLocationTracking();
-    });
-  };
-
-  const startLocationTracking = () => {
-    if (locationIntervalRef.current) return;
-    const sendLocation = () => {
-      navigator.geolocation?.getCurrentPosition(
-        (pos) => {
-          workerApi.logLocation(taskId!, pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy)
-            .catch(() => {}); // silent fail for GPS
-        },
-        () => {} // silent fail
-      );
-    };
-    sendLocation();
-    locationIntervalRef.current = window.setInterval(sendLocation, 30000);
-  };
-
+  const handleStart = () => doAction(async () => { await workerApi.startTask(taskId!); startGPS(); });
   const handleSubmit = () => doAction(() => workerApi.submitTask(taskId!));
   const handleRetry = () => doAction(() => workerApi.retryTask(taskId!));
-
   const handleCancel = () => {
-    if (cancelReason.length < 5) return setError('Reason must be at least 5 characters');
+    if (cancelReason.length < 5) { setError('Reason must be at least 5 characters'); return; }
     doAction(async () => {
       await workerApi.cancelTask(taskId!, cancelReason);
-      if (locationIntervalRef.current) {
-        clearInterval(locationIntervalRef.current);
-        locationIntervalRef.current = null;
-      }
+      if (locationRef.current) { clearInterval(locationRef.current); locationRef.current = null; }
     });
   };
 
   const handleUpload = async () => {
     const file = fileRef.current?.files?.[0];
-    if (!file) return setError('Select a file first');
+    if (!file) { setError('Select a file first'); return; }
     setActionLoading(true);
     try {
       await mediaApi.upload(taskId!, file, uploadType);
       fileRef.current!.value = '';
       await load();
-    } catch (err) {
-      setError(getErrorMsg(err));
-    } finally {
-      setActionLoading(false);
-    }
+    } catch (err) { setError(getErrorMsg(err)); } finally { setActionLoading(false); }
   };
 
-  // Resume GPS logging if task is IN_PROGRESS
-  useEffect(() => {
-    if (task?.status === 'IN_PROGRESS') startLocationTracking();
-  }, [task?.status]);
-
-  if (loading) return <p className="text-gray-400 text-sm py-8 text-center">Loading...</p>;
-  if (!task) return <ErrorMsg error={error || 'Task not found'} />;
+  if (loading) return <PageSkeleton />;
+  if (!task) return <div className="p-4"><ErrorMsg error={error || 'Task not found'} /></div>;
 
   const isOpen = task.status === 'OPEN';
   const isAccepted = task.status === 'ACCEPTED';
   const isInProgress = task.status === 'IN_PROGRESS';
   const isRejected = task.status === 'REJECTED';
   const canCancel = ['ACCEPTED', 'IN_PROGRESS'].includes(task.status);
-
   const uploadedTypes = new Set(media.map((m: any) => m.type));
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
-      <button onClick={() => navigate(-1)} className="text-sm text-indigo-600 hover:underline">&larr; Back</button>
+    <div>
+      <TopBar title="Task Detail" showBack right={<Badge status={task.status} size="md" />} />
 
-      <ErrorMsg error={error} />
+      <div className="px-4 py-4 space-y-4 max-w-lg mx-auto">
+        <ErrorMsg error={error} />
 
-      <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
-        <div className="flex justify-between items-start">
-          <h1 className="text-lg font-bold">{task.title}</h1>
-          <StatusBadge status={task.status} />
-        </div>
-        <p className="text-sm text-gray-600">{task.description}</p>
-        <div className="text-xs text-gray-500 space-y-1">
-          <p>Category: {task.category} &middot; Urgency: {task.urgency}</p>
-          <p>Rate: Rs {(task.rateCents / 100).toFixed(0)}</p>
-          <p>Location: {task.locationAddress}</p>
-          {task.extraNote && <p>Note: {task.extraNote}</p>}
-          {task.rejectionReason && <p className="text-red-600">Rejected: {task.rejectionReason}</p>}
-        </div>
-      </div>
-
-      {/* Upload Section — only when IN_PROGRESS */}
-      {isInProgress && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-          <h2 className="text-sm font-bold">Upload Evidence</h2>
-          <div className="flex gap-2 flex-wrap">
-            {PHOTO_TYPES.map((pt) => (
-              <span key={pt.value} className={`text-xs px-2 py-1 rounded-full ${
-                uploadedTypes.has(pt.value) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-              }`}>
-                {pt.label} {uploadedTypes.has(pt.value) ? '✓' : ''}
-              </span>
-            ))}
-          </div>
-          <select value={uploadType} onChange={(e) => setUploadType(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            {PHOTO_TYPES.map((pt) => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
-          </select>
-          <input ref={fileRef} type="file" accept="image/*" className="text-sm" />
-          <button onClick={handleUpload} disabled={actionLoading}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-            Upload Photo
-          </button>
-        </div>
-      )}
-
-      {/* Uploaded media */}
-      {media.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h2 className="text-sm font-bold mb-2">Uploaded Photos</h2>
-          <div className="grid grid-cols-3 gap-2">
-            {media.map((m: any) => (
-              <div key={m.id} className="text-center">
-                <img src={m.url} alt={m.type} className="w-full h-24 object-cover rounded border" />
-                <p className="text-xs text-gray-500 mt-1">{m.type.replace(/_/g, ' ')}</p>
+        {/* Task Info */}
+        <Card>
+          <h2 className="text-lg font-bold text-text mb-1">{task.title}</h2>
+          <p className="text-sm text-text-secondary mb-3">{task.description}</p>
+          <div className="space-y-1.5 text-xs text-text-secondary">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-bold text-primary">Rs {(task.rateCents / 100).toFixed(0)}</span>
+              <Badge status={task.urgency} size="md" />
+            </div>
+            <div className="flex items-center gap-1.5"><MapPin size={13} /> {task.locationAddress || 'No address'}</div>
+            <div>Category: {task.category}</div>
+            {task.extraNote && <div className="text-text-muted">Note: {task.extraNote}</div>}
+            {task.rejectionReason && (
+              <div className="bg-danger-light text-danger px-3 py-2 rounded-lg mt-2">
+                Rejected: {task.rejectionReason}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
+        </Card>
 
-      {/* Actions */}
-      <div className="space-y-2">
-        {isOpen && (
-          <button onClick={handleAccept} disabled={actionLoading}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-            Accept Task
-          </button>
-        )}
-        {isAccepted && (
-          <button onClick={handleStart} disabled={actionLoading}
-            className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-            Start Work
-          </button>
-        )}
+        {/* Upload Section */}
         {isInProgress && (
-          <button onClick={handleSubmit} disabled={actionLoading}
-            className="w-full bg-purple-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-            Submit for Review
-          </button>
+          <Card>
+            <div className="flex items-center gap-2 mb-3">
+              <Camera size={16} className="text-primary" />
+              <h3 className="text-sm font-bold text-text">Upload Evidence</h3>
+            </div>
+            <div className="flex gap-2 mb-3">
+              {PHOTO_TYPES.map((pt) => {
+                const done = uploadedTypes.has(pt.value);
+                const active = uploadType === pt.value;
+                return (
+                  <button
+                    key={pt.value}
+                    type="button"
+                    onClick={() => setUploadType(pt.value)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      done ? 'bg-success-light text-success' :
+                      active ? 'bg-primary-light text-primary border border-primary/30' :
+                      'bg-gray-100 text-text-muted'
+                    }`}
+                  >
+                    {done && <CheckCircle2 size={13} />}
+                    {pt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" className="text-xs text-text-secondary mb-3 w-full" />
+            <Button onClick={handleUpload} loading={actionLoading} variant="secondary" icon={<Upload size={16} />} size="sm">
+              Upload Photo
+            </Button>
+          </Card>
         )}
-        {isRejected && (
-          <button onClick={handleRetry} disabled={actionLoading}
-            className="w-full bg-orange-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-            Retry Task
-          </button>
+
+        {/* Uploaded Media */}
+        {media.length > 0 && (
+          <Card>
+            <h3 className="text-sm font-bold text-text mb-2">Photos ({media.length})</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {media.map((m: any) => (
+                <div key={m.id}>
+                  <img src={m.url} alt={m.type} className="w-full h-24 object-cover rounded-xl border border-border" />
+                  <p className="text-[10px] text-text-muted text-center mt-1">{m.type.replace(/_/g, ' ')}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
         )}
-        {canCancel && !showCancel && (
-          <button onClick={() => setShowCancel(true)}
-            className="w-full border border-red-300 text-red-600 py-2 rounded-lg text-sm font-medium">
-            Cancel Task
-          </button>
+
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          {isOpen && (
+            <Button onClick={handleAccept} loading={actionLoading} icon={<CheckCircle2 size={18} />} size="lg">
+              Accept Task
+            </Button>
+          )}
+          {isAccepted && (
+            <Button onClick={handleStart} loading={actionLoading} icon={<Play size={18} />} size="lg" className="!bg-success hover:!bg-green-700">
+              Start Work
+            </Button>
+          )}
+          {isInProgress && (
+            <Button onClick={handleSubmit} loading={actionLoading} icon={<Send size={18} />} size="lg" className="!bg-purple-600 hover:!bg-purple-700">
+              Submit for Review
+            </Button>
+          )}
+          {isRejected && (
+            <Button onClick={handleRetry} loading={actionLoading} icon={<RotateCcw size={18} />} size="lg" className="!bg-orange-500 hover:!bg-orange-600">
+              Retry Task
+            </Button>
+          )}
+
+          {canCancel && !showCancel && (
+            <Button variant="outline" onClick={() => setShowCancel(true)} icon={<Ban size={16} />} className="!text-danger !border-danger/30">
+              Cancel Task
+            </Button>
+          )}
+        </div>
+
+        {showCancel && (
+          <Card>
+            <Textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Why are you cancelling? (min 5 chars)" rows={2} />
+            <div className="flex gap-3 mt-3">
+              <Button variant="danger" onClick={handleCancel} loading={actionLoading} className="flex-1">Confirm</Button>
+              <Button variant="outline" onClick={() => setShowCancel(false)} className="flex-1">Back</Button>
+            </div>
+          </Card>
         )}
       </div>
-
-      {showCancel && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-          <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}
-            placeholder="Why are you cancelling? (min 5 chars)" rows={2}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          <div className="flex gap-2">
-            <button onClick={handleCancel} disabled={actionLoading}
-              className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm disabled:opacity-50">Confirm</button>
-            <button onClick={() => setShowCancel(false)}
-              className="flex-1 border border-gray-300 py-2 rounded-lg text-sm">Cancel</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

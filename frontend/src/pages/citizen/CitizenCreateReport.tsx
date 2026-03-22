@@ -1,31 +1,37 @@
-import { useState, FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { citizenApi } from '../../lib/api';
+import { Navigation, Send } from 'lucide-react';
+import TopBar from '../../components/ui/TopBar';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import { Textarea, Select } from '../../components/ui/Input';
+import Card from '../../components/ui/Card';
 import ErrorMsg, { getErrorMsg } from '../../components/ErrorMsg';
 
-const ISSUE_TYPES = ['Pothole', 'Garbage', 'Water Leak', 'Street Light', 'Road Damage', 'Other'];
+const ISSUE_TYPES = [
+  { value: 'Pothole', label: 'Pothole' },
+  { value: 'Garbage', label: 'Garbage' },
+  { value: 'Water Leak', label: 'Water Leak' },
+  { value: 'Street Light', label: 'Street Light' },
+  { value: 'Road Damage', label: 'Road Damage' },
+  { value: 'Other', label: 'Other' },
+];
 
 export default function CitizenCreateReport() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    issueType: 'Pothole',
-    description: '',
-    locationText: '',
-    lat: '',
-    lng: '',
+    issueType: 'Pothole', description: '', locationText: '', lat: '', lng: '',
   });
 
   const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }));
 
   const getLocation = () => {
     navigator.geolocation?.getCurrentPosition(
-      (pos) => {
-        set('lat', pos.coords.latitude.toString());
-        set('lng', pos.coords.longitude.toString());
-      },
-      () => setError('Could not get location')
+      (pos) => { set('lat', pos.coords.latitude.toFixed(6)); set('lng', pos.coords.longitude.toFixed(6)); },
+      () => setError('Could not get your location')
     );
   };
 
@@ -50,47 +56,35 @@ export default function CitizenCreateReport() {
   };
 
   return (
-    <div className="max-w-lg mx-auto">
-      <h1 className="text-xl font-bold mb-4">Report an Issue</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div>
+      <TopBar title="Report Issue" showBack />
+      <form onSubmit={handleSubmit} className="px-4 py-4 space-y-4 max-w-lg mx-auto">
         <ErrorMsg error={error} />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Issue Type</label>
-          <select value={form.issueType} onChange={(e) => set('issueType', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            {ISSUE_TYPES.map((t) => <option key={t}>{t}</option>)}
-          </select>
-        </div>
+        <Card>
+          <div className="space-y-3">
+            <Select label="Issue Type" options={ISSUE_TYPES} value={form.issueType} onChange={(e) => set('issueType', e.target.value)} />
+            <Textarea label="Description" required minLength={10} rows={4} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Describe the issue in detail..." />
+          </div>
+        </Card>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-          <textarea required minLength={10} rows={4} value={form.description} onChange={(e) => set('description', e.target.value)}
-            placeholder="Describe the issue in detail..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
+        <Card>
+          <h2 className="text-sm font-bold text-text mb-3">Location (optional)</h2>
+          <div className="space-y-3">
+            <Input placeholder="Address or landmark" value={form.locationText} onChange={(e) => set('locationText', e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input placeholder="Latitude" value={form.lat} onChange={(e) => set('lat', e.target.value)} />
+              <Input placeholder="Longitude" value={form.lng} onChange={(e) => set('lng', e.target.value)} />
+            </div>
+            <button type="button" onClick={getLocation} className="flex items-center gap-1.5 text-xs text-primary font-semibold">
+              <Navigation size={14} /> Use my current location
+            </button>
+          </div>
+        </Card>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Location (optional)</label>
-          <input value={form.locationText} onChange={(e) => set('locationText', e.target.value)}
-            placeholder="Address or landmark"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <input value={form.lat} onChange={(e) => set('lat', e.target.value)} placeholder="Latitude"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          <input value={form.lng} onChange={(e) => set('lng', e.target.value)} placeholder="Longitude"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <button type="button" onClick={getLocation} className="text-xs text-indigo-600 hover:underline">
-          Use my current location
-        </button>
-
-        <button type="submit" disabled={loading}
-          className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-          {loading ? 'Submitting...' : 'Submit Report'}
-        </button>
+        <Button type="submit" loading={loading} icon={<Send size={18} />} size="lg">
+          Submit Report
+        </Button>
       </form>
     </div>
   );

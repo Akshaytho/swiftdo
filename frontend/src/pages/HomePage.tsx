@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { PageSkeleton } from '../components/ui/Skeleton';
 
 const roleHome: Record<string, string> = {
   BUYER: '/buyer/tasks',
@@ -10,8 +11,7 @@ const roleHome: Record<string, string> = {
 
 export default function HomePage() {
   const { user, loading } = useAuth();
-
-  if (loading) return <p className="text-gray-400 text-sm py-8 text-center">Loading...</p>;
+  if (loading) return <PageSkeleton />;
   if (!user) return <Navigate to="/login" replace />;
   return <Navigate to={roleHome[user.role] || '/login'} replace />;
 }

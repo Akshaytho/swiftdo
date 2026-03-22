@@ -1,12 +1,13 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import Layout from './components/Layout';
+import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import NotificationsPage from './pages/NotificationsPage';
+import ProfilePage from './pages/ProfilePage';
 
 import BuyerTaskList from './pages/buyer/BuyerTaskList';
 import BuyerCreateTask from './pages/buyer/BuyerCreateTask';
@@ -28,13 +29,12 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Protected — inside layout */}
-          <Route element={<Layout />}>
+          {/* Protected — inside AppShell with bottom nav */}
+          <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
             <Route path="/" element={<HomePage />} />
 
-            <Route path="/notifications" element={
-              <ProtectedRoute><NotificationsPage /></ProtectedRoute>
-            } />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
 
             {/* Buyer */}
             <Route path="/buyer/tasks" element={
